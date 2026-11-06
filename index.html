@@ -2,118 +2,709 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Резервный Голос</title>
-    <!-- Используем гарантированно рабочую глобальную CDN ссылку -->
-    <script src="https://cloudflare.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>P2P Голосовой Чат • 5 человек</title>
+    <!-- PeerJS CDN (официальная библиотека) -->
+    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #2f3136; color: #fff; text-align: center; padding-top: 20px; }
-        button { padding: 12px 20px; font-size: 16px; margin: 10px; border: none; border-radius: 5px; cursor: pointer; background: #5865F2; color: white; font-weight: bold; }
-        #status { font-size: 18px; margin: 15px; color: #faa81a; }
-        input { padding: 10px; font-size: 16px; width: 200px; border-radius: 5px; border: none; }
-        #log-box { width: 80%; max-width: 600px; height: 150px; background: #000; color: #0f0; font-family: monospace; text-align: left; padding: 10px; margin: 20px auto; overflow-y: scroll; border: 1px solid #4f545c; font-size: 12px; }
+        /* ========== БАЗОВЫЕ СТИЛИ (Discord-подобный тёмный дизайн) ========== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: #1e1f22; /* тёмный фон Discord */
+            color: #dbdee1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+            padding-bottom: 200px; /* место для консоли */
+            position: relative;
+        }
+
+        /* ========== ЗАГОЛОВОК ========== */
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin: 12px 0 8px;
+            color: #f2f3f5;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: #949ba4;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* ========== ОСНОВНАЯ ПАНЕЛЬ ========== */
+        .panel {
+            width: 100%;
+            max-width: 500px;
+            background: #2b2d31;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            margin-bottom: 16px;
+        }
+
+        /* ========== БОЛЬШАЯ КНОПКА МИКРОФОНА ========== */
+        #btnMic {
+            width: 100%;
+            padding: 18px 20px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #fff;
+            background: #5865f2; /* Discord синий */
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            letter-spacing: 0.3px;
+            box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
+            margin-bottom: 14px;
+            touch-action: manipulation;
+        }
+
+        #btnMic:hover {
+            background: #4752c4;
+        }
+
+        #btnMic:active {
+            transform: scale(0.98);
+        }
+
+        #btnMic:disabled {
+            background: #3a3c42;
+            color: #72767d;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        /* ========== СТАТУС МИКРОФОНА ========== */
+        #micStatus {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #949ba4;
+            margin-bottom: 16px;
+            min-height: 20px;
+        }
+
+        #micStatus.active {
+            color: #23a55a; /* зелёный */
+            font-weight: 600;
+        }
+
+        /* ========== ПОЛЕ ВВОДА ID + КНОПКА ========== */
+        .connect-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+
+        #peerIdInput {
+            flex: 1;
+            min-width: 0;
+            padding: 14px 16px;
+            font-size: 1rem;
+            background: #1e1f22;
+            border: 2px solid #3a3c42;
+            border-radius: 8px;
+            color: #f2f3f5;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #peerIdInput:focus {
+            border-color: #5865f2;
+        }
+
+        #peerIdInput::placeholder {
+            color: #72767d;
+        }
+
+        #btnConnect {
+            padding: 14px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            background: #23a55a; /* зелёный */
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            white-space: nowrap;
+            touch-action: manipulation;
+        }
+
+        #btnConnect:hover {
+            background: #1e8e4a;
+        }
+
+        #btnConnect:active {
+            transform: scale(0.97);
+        }
+
+        #btnConnect:disabled {
+            background: #3a3c42;
+            color: #72767d;
+            cursor: not-allowed;
+        }
+
+        /* ========== ID ПОЛЬЗОВАТЕЛЯ ========== */
+        .my-id-block {
+            margin-top: 14px;
+            padding: 12px 16px;
+            background: #1e1f22;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #949ba4;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .my-id-block .id-value {
+            color: #f2f3f5;
+            font-weight: 700;
+            font-size: 1.1rem;
+            letter-spacing: 0.5px;
+            user-select: all;
+            word-break: break-all;
+        }
+
+        .my-id-block .copy-btn {
+            background: #3a3c42;
+            border: none;
+            color: #dbdee1;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.2s;
+        }
+
+        .my-id-block .copy-btn:hover {
+            background: #4e5058;
+        }
+
+        /* ========== КОНТЕЙНЕР ДЛЯ АУДИО-ЭЛЕМЕНТОВ ========== */
+        #audioContainer {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+
+        .audio-peer {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #2b2d31;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #949ba4;
+        }
+
+        .audio-peer .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #23a55a;
+            flex-shrink: 0;
+        }
+
+        .audio-peer audio {
+            display: none; /* скрываем нативный плеер */
+        }
+
+        /* ========== КОНСОЛЬ ЛОГОВ ========== */
+        #logConsole {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 180px;
+            background: #000;
+            border-top: 2px solid #3a3c42;
+            padding: 10px 14px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.78rem;
+            line-height: 1.5;
+            color: #00ff00; /* зелёный шрифт */
+            z-index: 100;
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.6);
+            word-break: break-all;
+            white-space: pre-wrap;
+        }
+
+        #logConsole::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #logConsole::-webkit-scrollbar-thumb {
+            background: #3a3c42;
+            border-radius: 3px;
+        }
+
+        /* ========== АДАПТИВНОСТЬ ========== */
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+                padding-bottom: 190px;
+            }
+
+            h1 {
+                font-size: 1.3rem;
+            }
+
+            .panel {
+                padding: 16px;
+            }
+
+            #btnMic {
+                padding: 16px;
+                font-size: 1.1rem;
+            }
+
+            .connect-row {
+                flex-direction: column;
+            }
+
+            #btnConnect {
+                width: 100%;
+            }
+
+            #logConsole {
+                height: 160px;
+                font-size: 0.72rem;
+            }
+        }
+
+        /* ========== АНИМАЦИЯ ПУЛЬСАЦИИ ========== */
+        @keyframes pulseGreen {
+            0% { box-shadow: 0 0 0 0 rgba(35, 165, 90, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(35, 165, 90, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(35, 165, 90, 0); }
+        }
+
+        .pulse {
+            animation: pulseGreen 2s infinite;
+        }
     </style>
 </head>
 <body>
 
-    <h1>P2P Резервный Голос (Исправленный)</h1>
-    
-    <div id="mic-box">
-        <button style="background:#3ba55d;" onclick="requestMicrophone()">👉 ВКЛЮЧИТЬ МИКРОФОН 👈</button>
+    <h1>🎙️ P2P Голосовой Чат</h1>
+    <div class="subtitle">Mesh-сеть · До 5 человек · Без сервера</div>
+
+    <!-- ОСНОВНАЯ ПАНЕЛЬ -->
+    <div class="panel">
+
+        <!-- БОЛЬШАЯ КНОПКА МИКРОФОНА -->
+        <button id="btnMic" class="pulse">
+            🎤 Включить микрофон
+        </button>
+        <div id="micStatus">Нажмите кнопку, чтобы начать</div>
+
+        <!-- ПОДКЛЮЧЕНИЕ К ДРУГУ -->
+        <div class="connect-row">
+            <input type="text" id="peerIdInput" placeholder="Введите ID друга..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <button id="btnConnect" disabled>Подключиться</button>
+        </div>
+
+        <!-- МОЙ ID -->
+        <div class="my-id-block" id="myIdBlock" style="display: none;">
+            <span>Ваш ID:</span>
+            <span class="id-value" id="myIdValue">—</span>
+            <button class="copy-btn" id="btnCopyId">📋 Копировать</button>
+        </div>
+
     </div>
 
-    <div id="status" style="display:none;">Статус: Ожидание...</div>
-    
-    <div id="chat-box" style="display:none;">
-        <h2 id="my-id" style="color: #faa81a; font-size: 28px;">Получение ID...</h2>
-        <input type="text" id="peer-id-input" placeholder="ID друга">
-        <button onclick="connectToFriend()">Подключиться к другу</button>
-    </div>
+    <!-- КОНТЕЙНЕР ДЛЯ АУДИО-ЭЛЕМЕНТОВ УДАЛЁННЫХ УЧАСТНИКОВ -->
+    <div id="audioContainer"></div>
 
-    <h3>Логи системы:</h3>
-    <div id="log-box">=== Старт логов ===<br></div>
+    <!-- КОНСОЛЬ ЛОГОВ -->
+    <div id="logConsole" aria-live="polite"></div>
 
     <script>
-        let localStream;
-        let peer;
+        // ============================================================
+        //  ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ============================================================
+        let localStream = null;          // локальный аудиопоток
+        let peer = null;                 // экземпляр PeerJS
+        let myPeerId = null;             // сгенерированный ID
+        const activeCalls = {};          // { remotePeerId: MediaConnection }
+        const audioElements = {};        // { remotePeerId: <audio> }
 
-        function addLog(text) {
-            const box = document.getElementById('log-box');
-            box.innerHTML += "[" + new Date().toLocaleTimeString() + "] " + text + "<br>";
-            box.scrollTop = box.scrollHeight;
-        }
+        // DOM-элементы
+        const btnMic = document.getElementById('btnMic');
+        const micStatus = document.getElementById('micStatus');
+        const peerIdInput = document.getElementById('peerIdInput');
+        const btnConnect = document.getElementById('btnConnect');
+        const myIdBlock = document.getElementById('myIdBlock');
+        const myIdValue = document.getElementById('myIdValue');
+        const btnCopyId = document.getElementById('btnCopyId');
+        const logConsole = document.getElementById('logConsole');
+        const audioContainer = document.getElementById('audioContainer');
 
-        // Проверяем сразу при загрузке, видит ли браузер библиотеку звонков
-        window.onload = function() {
-            if (typeof window.Peer !== 'undefined') {
-                addLog("Сетевая библиотека PeerJS успешно загружена браузером.");
+        // ============================================================
+        //  ФУНКЦИЯ ЛОГИРОВАНИЯ (зелёный текст на чёрном фоне)
+        // ============================================================
+        function log(message, isError = false) {
+            const time = new Date().toLocaleTimeString('ru-RU', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            const prefix = isError ? '❌ ' : '✅ ';
+            const line = `[${time}] ${prefix}${message}\n`;
+
+            logConsole.textContent += line;
+            logConsole.scrollTop = logConsole.scrollHeight;
+
+            // Ограничиваем количество строк в консоли (чтобы не переполнялась)
+            const lines = logConsole.textContent.split('\n');
+            if (lines.length > 200) {
+                logConsole.textContent = lines.slice(-150).join('\n');
+            }
+
+            // Дублируем в консоль разработчика
+            if (isError) {
+                console.error(message);
             } else {
-                addLog("ОШИБКА: Библиотека PeerJS не загрузилась. Проверьте интернет или VPN.");
+                console.log(message);
             }
-        };
-
-        function requestMicrophone() {
-            addLog("Запрос доступа к микрофону...");
-            navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-                .then(stream => {
-                    localStream = stream;
-                    document.getElementById('mic-box').style.display = 'none';
-                    document.getElementById('status').style.display = 'block';
-                    document.getElementById('chat-box').style.display = 'block';
-                    addLog("Микрофон успешно подключен и активен.");
-                    initP2P();
-                })
-                .catch(err => {
-                    addLog("ОШИБКА МИКРОФОНА: " + err.message);
-                    alert("Ошибка доступа к микрофону. Разрешите его в браузере.");
-                });
         }
 
-        function initP2P() {
-            addLog("Подключение к центральному сигнальному серверу...");
+        // ============================================================
+        //  БЛОКИРОВКА / РАЗБЛОКИРОВКА КНОПКИ ПОДКЛЮЧЕНИЯ
+        // ============================================================
+        function setConnectEnabled(enabled) {
+            btnConnect.disabled = !enabled;
+            if (enabled) {
+                btnConnect.classList.remove('pulse');
+            } else {
+                btnConnect.classList.add('pulse');
+            }
+        }
+
+        // ============================================================
+        //  1. ЗАПРОС МИКРОФОНА + ИНИЦИАЛИЗАЦИЯ PEERJS
+        // ============================================================
+        btnMic.addEventListener('click', async () => {
+            // Блокируем кнопку, чтобы избежать повторных нажатий
+            btnMic.disabled = true;
+            btnMic.textContent = '⏳ Запрос доступа...';
+            micStatus.textContent = 'Запрашиваем доступ к микрофону...';
+            log('Запрос системного разрешения на микрофон...');
+
             try {
-                // Создаем подключение со встроенным бесплатным STUN Google для обхода серых IP
-                peer = new window.Peer({
-                    config: {'iceServers': [{ 'urls': 'stun:://google.com' }]}
+                // Принудительно запрашиваем аудиопоток
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    },
+                    video: false
                 });
 
-                peer.on('open', (id) => {
-                    document.getElementById('my-id').innerText = id;
-                    document.getElementById('status').innerText = 'Вы в сети. Ждем друзей!';
-                    document.getElementById('status').style.color = '#3ba55d';
-                    addLog("УСПЕХ! Сервер выдал ID комнаты: " + id);
+                // Успех
+                log('Микрофон получен. Аудиопоток активен.');
+                micStatus.textContent = '✅ Микрофон активен. Можно подключаться.';
+                micStatus.classList.add('active');
+                btnMic.textContent = '🎤 Микрофон включён';
+                btnMic.classList.remove('pulse');
+                btnMic.style.background = '#23a55a'; // зелёный
+
+                // Разблокируем кнопку "Подключиться"
+                setConnectEnabled(true);
+
+                // Инициализируем PeerJS только после успешного получения потока
+                initPeer();
+
+            } catch (err) {
+                // Ошибка доступа к микрофону
+                console.error('getUserMedia error:', err);
+                let errMsg = 'Не удалось получить доступ к микрофону. ';
+
+                if (err.name === 'NotAllowedError') {
+                    errMsg += 'Вы отклонили разрешение. Разрешите доступ в настройках браузера.';
+                } else if (err.name === 'NotFoundError') {
+                    errMsg += 'Микрофон не найден. Подключите устройство.';
+                } else if (err.name === 'NotReadableError') {
+                    errMsg += 'Микрофон занят другим приложением.';
+                } else {
+                    errMsg += err.message || 'Неизвестная ошибка.';
+                }
+
+                log(errMsg, true);
+                micStatus.textContent = '❌ ' + errMsg;
+
+                // Возвращаем кнопку в исходное состояние
+                btnMic.disabled = false;
+                btnMic.textContent = '🎤 Попробовать снова';
+                btnMic.classList.add('pulse');
+            }
+        });
+
+        // ============================================================
+        //  2. ИНИЦИАЛИЗАЦИЯ PEERJS (Mesh-сеть)
+        // ============================================================
+        function initPeer() {
+            log('Инициализация PeerJS...');
+
+            // Конфигурация с STUN-сервером Google
+            // (исправлен синтаксис: stun:stun.l.google.com:19302)
+            const peerConfig = {
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' }
+                    ],
+                    sdpSemantics: 'unified-plan'
+                },
+                debug: 1 // 1 = только ошибки, чтобы не засорять консоль
+            };
+
+            // Создаём Peer без явного ID — сервер сгенерирует случайный
+            peer = new Peer(peerConfig);
+
+            // ---- Событие: успешное подключение к сигнальному серверу ----
+            peer.on('open', (id) => {
+                myPeerId = id;
+                log(`PeerJS подключён. Ваш ID: ${id}`);
+                myIdValue.textContent = id;
+                myIdBlock.style.display = 'flex';
+
+                // Разблокируем кнопку подключения (если ещё не разблокирована)
+                if (localStream) {
+                    setConnectEnabled(true);
+                }
+            });
+
+            // ---- Событие: входящий вызов ----
+            peer.on('call', (call) => {
+                const remoteId = call.peer;
+                log(`Входящий вызов от ${remoteId}. Автоматически отвечаем...`);
+
+                // Отвечаем своим аудиопотоком
+                call.answer(localStream);
+
+                // Обрабатываем входящий поток
+                call.on('stream', (remoteStream) => {
+                    log(`Получен аудиопоток от ${remoteId}`);
+                    addRemoteAudio(remoteId, remoteStream);
                 });
 
-                peer.on('error', (err) => {
-                    addLog("Сетевая ошибка PeerJS: " + err.type + " - " + err.message);
+                call.on('error', (err) => {
+                    log(`Ошибка вызова с ${remoteId}: ${err.message}`, true);
                 });
 
-                peer.on('call', (call) => {
-                    addLog("Обнаружен входящий вызов от друга. Соединяю...");
-                    call.answer(localStream);
-                    call.on('stream', (remoteStream) => { playRemoteStream(remoteStream); });
+                call.on('close', () => {
+                    log(`Вызов с ${remoteId} завершён`);
+                    removeRemoteAudio(remoteId);
                 });
-            } catch(e) {
-                addLog("Критическая ошибка инициализации сети: " + e.message);
+
+                // Сохраняем вызов
+                activeCalls[remoteId] = call;
+            });
+
+            // ---- Событие: ошибка PeerJS ----
+            peer.on('error', (err) => {
+                const errType = err.type || 'unknown';
+                const errMsg = err.message || 'Нет описания';
+                log(`PeerJS ошибка [${errType}]: ${errMsg}`, true);
+
+                // Специфическая обработка
+                if (errType === 'peer-unavailable') {
+                    log('Указанный ID не найден. Проверьте правильность ID друга.', true);
+                } else if (errType === 'network' || errType === 'socket-error') {
+                    log('Потеряна связь с сигнальным сервером. Попробуйте переподключиться.', true);
+                } else if (errType === 'unavailable-id') {
+                    log('ID уже занят. Перезагрузите страницу для генерации нового.', true);
+                }
+            });
+
+            // ---- Событие: отключение от сигнального сервера ----
+            peer.on('disconnected', () => {
+                log('Отключено от сигнального сервера. Попытка переподключения...', true);
+                // Пытаемся переподключиться
+                setTimeout(() => {
+                    if (peer && !peer.destroyed) {
+                        peer.reconnect();
+                    }
+                }, 3000);
+            });
+
+            // ---- Событие: закрытие Peer ----
+            peer.on('close', () => {
+                log('PeerJS соединение закрыто.', true);
+            });
+        }
+
+        // ============================================================
+        //  3. ПОДКЛЮЧЕНИЕ К ДРУГОМУ УЧАСТНИКУ (исходящий вызов)
+        // ============================================================
+        btnConnect.addEventListener('click', () => {
+            const remoteId = peerIdInput.value.trim();
+
+            // Валидация
+            if (!remoteId) {
+                log('Введите ID друга.', true);
+                return;
+            }
+
+            if (!localStream) {
+                log('Сначала включите микрофон.', true);
+                return;
+            }
+
+            if (!peer || !myPeerId) {
+                log('PeerJS ещё не готов. Подождите...', true);
+                return;
+            }
+
+            if (remoteId === myPeerId) {
+                log('Нельзя подключиться к самому себе.', true);
+                return;
+            }
+
+            if (activeCalls[remoteId]) {
+                log(`Уже есть активный вызов с ${remoteId}.`, true);
+                return;
+            }
+
+            log(`Исходящий вызов к ${remoteId}...`);
+
+            try {
+                // Инициируем вызов
+                const call = peer.call(remoteId, localStream);
+
+                // Обрабатываем удалённый поток
+                call.on('stream', (remoteStream) => {
+                    log(`Получен аудиопоток от ${remoteId}`);
+                    addRemoteAudio(remoteId, remoteStream);
+                });
+
+                call.on('error', (err) => {
+                    log(`Ошибка исходящего вызова к ${remoteId}: ${err.message}`, true);
+                    delete activeCalls[remoteId];
+                });
+
+                call.on('close', () => {
+                    log(`Вызов с ${remoteId} завершён`);
+                    removeRemoteAudio(remoteId);
+                    delete activeCalls[remoteId];
+                });
+
+                // Сохраняем вызов
+                activeCalls[remoteId] = call;
+
+                // Очищаем поле ввода
+                peerIdInput.value = '';
+
+            } catch (err) {
+                log(`Не удалось совершить вызов: ${err.message}`, true);
+            }
+        });
+
+        // ============================================================
+        //  4. ДОБАВЛЕНИЕ / УДАЛЕНИЕ АУДИО-ЭЛЕМЕНТОВ
+        // ============================================================
+        function addRemoteAudio(remoteId, stream) {
+            // Если элемент уже существует — удаляем старый
+            if (audioElements[remoteId]) {
+                removeRemoteAudio(remoteId);
+            }
+
+            // Создаём контейнер для отображения
+            const wrapper = document.createElement('div');
+            wrapper.className = 'audio-peer';
+            wrapper.id = `peer-wrapper-${remoteId}`;
+
+            const dot = document.createElement('span');
+            dot.className = 'dot';
+
+            const label = document.createElement('span');
+            label.textContent = `Участник: ${remoteId}`;
+
+            // Создаём аудио-элемент
+            const audio = document.createElement('audio');
+            audio.autoplay = true;
+            audio.playsInline = true;
+            audio.srcObject = stream;
+
+            // Некоторые браузеры требуют явного вызова play()
+            audio.play().catch(e => {
+                log(`Автовоспроизведение заблокировано. Нажмите на страницу.`, true);
+            });
+
+            wrapper.appendChild(dot);
+            wrapper.appendChild(label);
+            wrapper.appendChild(audio);
+            audioContainer.appendChild(wrapper);
+
+            audioElements[remoteId] = { audio, wrapper };
+            log(`Аудио-элемент для ${remoteId} добавлен.`);
+        }
+
+        function removeRemoteAudio(remoteId) {
+            const entry = audioElements[remoteId];
+            if (entry) {
+                if (entry.audio.srcObject) {
+                    entry.audio.srcObject.getTracks().forEach(t => t.stop());
+                }
+                entry.audio.remove();
+                entry.wrapper.remove();
+                delete audioElements[remoteId];
+                log(`Аудио-элемент для ${remoteId} удалён.`);
             }
         }
 
-        function connectToFriend() {
-            const friendId = document.getElementById('peer-id-input').value;
-            if (!friendId) return alert("Сначала введите ID друга!");
-            addLog("Вызываю друга на P2P канал. ID: " + friendId);
-            
-            const call = peer.call(friendId, localStream);
-            call.on('stream', (remoteStream) => { playRemoteStream(remoteStream); });
-        }
+        // ============================================================
+        //  5. КОПИРОВАНИЕ ID
+        // ============================================================
+        btnCopyId.addEventListener('click', async () => {
+            if (!myPeerId) return;
+            try {
+                await navigator.clipboard.writeText(myPeerId);
+                log('ID скопирован в буфер обмена.');
+            } catch (err) {
+                // Fallback для старых браузеров
+                const textarea = document.createElement('textarea');
+                textarea.value = myPeerId;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                textarea.remove();
+                log('ID скопирован (fallback).');
+            }
+        });
 
-        function playRemoteStream(remoteStream) {
-            addLog("Прямой P2P мост построен! Аудиопоток воспроизводится.");
-            const audio = document.createElement('audio');
-            audio.srcObject = remoteStream;
-            audio.autoplay = true;
-            document.body.appendChild(audio);
-        }
+        // ============================================================
+        //  6. ПРИВЕТСТВЕННОЕ СООБЩЕНИЕ В КОНСОЛИ
+        // ============================================================
+        log('Система готова. Нажмите "Включить микрофон".');
+        log('После получения ID поделитесь им с друзьями.');
+
     </script>
 </body>
 </html>
