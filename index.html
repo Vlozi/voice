@@ -3,58 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Резервный Голос — Автономный</title>
-    <!-- Встраиваем PeerJS напрямую текстом, чтобы не зависеть от внешних серверов -->
-    <script>
-    !function(e,t){"object"==typeof exports&&"object"==typeof module?module.exports=t():"function"==typeof define&&define.amd?define([],t):"object"==typeof exports?exports.Peer=t():e.Peer=t()}(this,(function(){return function(e){var t={};function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:false,exports:{}};return e[r].call(o.exports,o,o.exports,n),o.l=true,o.exports}return n.m=e,n.c=t,n.d=function(e,t,r){n.o(e,t)||Object.defineProperty(e,t,{enumerable:true,get:r})},n.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:true})},n.t=function(e,t){if(1&t&&(e=n(e)),8&t)return e;if(4&t&&"object"==typeof e&&e&&e.__esModule)return e;var r=Object.create(null);if(n.r(r),Object.defineProperty(r,"default",{enumerable:true,value:e}),2&t&&"string"!=typeof e)for(var o in e)n.d(r,o,function(t){return e[t]}.bind(null,o));return r},n.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return n.d(t,"a",t),t},n.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},n.p="",n(n.s=0)}([function(e,t,n){"use strict";n.r(t);var r=n(1);n.d(t,"Peer",(function(){return r.default})),t.default=r.default}]);
-    // Сокращенный инициализатор для работы P2P
-    window.Peer = class extends util.EventEmitter {
-        constructor(id, options) {
-            super();
-            if (id && typeof id === 'object') { options = id; id = null; }
-            this.options = Object.assign({ host: '://peerjs.com', port: 443, path: '/', secure: true, config: {'iceServers': [{ 'urls': 'stun:://google.com' }]} }, options);
-            this.id = id;
-            this._open = false;
-            this.connections = {};
-            setTimeout(() => this._initialize(), 0);
-        }
-        _initialize() {
-            // Подключаемся к дефолтной сигнальной сети через официальный скрипт PeerJS
-            const script = document.createElement('script');
-            script.src = "https://cloudflare.com";
-            script.onload = () => {
-                this._realPeer = new window.Peer(this.id, this.options);
-                this._realPeer.on('open', (id) => { this.id = id; this._open = true; this.emit('open', id); });
-                this._realPeer.on('call', (call) => this.emit('call', call));
-                this._realPeer.on('error', (err) => this.emit('error', err));
-            };
-            script.onerror = () => {
-                // Если cdnjs заблокирован, пробуем запасной глобальный сервер unpkg
-                const fallback = document.createElement('script');
-                fallback.src = "https://unpkg.com";
-                fallback.onload = () => {
-                    this._realPeer = new window.Peer(this.id, this.options);
-                    this._realPeer.on('open', (id) => { this.id = id; this._open = true; this.emit('open', id); });
-                    this._realPeer.on('call', (call) => this.emit('call', call));
-                    this._realPeer.on('error', (err) => this.emit('error', err));
-                };
-                document.head.appendChild(fallback);
-            };
-            document.head.appendChild(script);
-        }
-        call(peerId, stream, options) { return this._realPeer.call(peerId, stream, options); }
-    };
-    // Эмуляция простейшего эмиттера событий для совместимости кода
-    window.util = { EventEmitter: class {
-        constructor() { this._events = {}; }
-        on(event, listener) { (this._events[event] || (this._events[event] = [])).push(listener); }
-        emit(event, ...args) { (this._events[event] || []).forEach(fn => fn(...args)); }
-    }};
-    </script>
-
+    <title>P2P Резервный Голос</title>
+    <!-- Используем гарантированно рабочую глобальную CDN ссылку -->
+    <script src="https://cloudflare.com"></script>
     <style>
         body { font-family: sans-serif; background: #2f3136; color: #fff; text-align: center; padding-top: 20px; }
-        button { padding: 12px 20px; font-size: 16px; margin: 10px; border: none; border-radius: 5px; cursor: pointer; background: #5865F2; color: white; }
+        button { padding: 12px 20px; font-size: 16px; margin: 10px; border: none; border-radius: 5px; cursor: pointer; background: #5865F2; color: white; font-weight: bold; }
         #status { font-size: 18px; margin: 15px; color: #faa81a; }
         input { padding: 10px; font-size: 16px; width: 200px; border-radius: 5px; border: none; }
         #log-box { width: 80%; max-width: 600px; height: 150px; background: #000; color: #0f0; font-family: monospace; text-align: left; padding: 10px; margin: 20px auto; overflow-y: scroll; border: 1px solid #4f545c; font-size: 12px; }
@@ -62,18 +16,18 @@
 </head>
 <body>
 
-    <h1>P2P Резервный Голос (Автономная версия)</h1>
+    <h1>P2P Резервный Голос (Исправленный)</h1>
     
     <div id="mic-box">
-        <button style="background:#3ba55d; font-weight:bold;" onclick="requestMicrophone()">👉 ВКЛЮЧИТЬ МИКРОФОН 👈</button>
+        <button style="background:#3ba55d;" onclick="requestMicrophone()">👉 ВКЛЮЧИТЬ МИКРОФОН 👈</button>
     </div>
 
     <div id="status" style="display:none;">Статус: Ожидание...</div>
     
     <div id="chat-box" style="display:none;">
-        <h2 id="my-id" style="color: #faa81a;">Получение ID...</h2>
+        <h2 id="my-id" style="color: #faa81a; font-size: 28px;">Получение ID...</h2>
         <input type="text" id="peer-id-input" placeholder="ID друга">
-        <button onclick="connectToFriend()">Подключиться</button>
+        <button onclick="connectToFriend()">Подключиться к другу</button>
     </div>
 
     <h3>Логи системы:</h3>
@@ -89,55 +43,72 @@
             box.scrollTop = box.scrollHeight;
         }
 
+        // Проверяем сразу при загрузке, видит ли браузер библиотеку звонков
+        window.onload = function() {
+            if (typeof window.Peer !== 'undefined') {
+                addLog("Сетевая библиотека PeerJS успешно загружена браузером.");
+            } else {
+                addLog("ОШИБКА: Библиотека PeerJS не загрузилась. Проверьте интернет или VPN.");
+            }
+        };
+
         function requestMicrophone() {
-            addLog("Запрос микрофона...");
+            addLog("Запрос доступа к микрофону...");
             navigator.mediaDevices.getUserMedia({ audio: true, video: false })
                 .then(stream => {
                     localStream = stream;
                     document.getElementById('mic-box').style.display = 'none';
                     document.getElementById('status').style.display = 'block';
                     document.getElementById('chat-box').style.display = 'block';
-                    addLog("Микрофон успешно подключен.");
+                    addLog("Микрофон успешно подключен и активен.");
                     initP2P();
                 })
                 .catch(err => {
                     addLog("ОШИБКА МИКРОФОНА: " + err.message);
+                    alert("Ошибка доступа к микрофону. Разрешите его в браузере.");
                 });
         }
 
         function initP2P() {
-            addLog("Инициализация P2P менеджера...");
+            addLog("Подключение к центральному сигнальному серверу...");
             try {
-                peer = new window.Peer();
+                // Создаем подключение со встроенным бесплатным STUN Google для обхода серых IP
+                peer = new window.Peer({
+                    config: {'iceServers': [{ 'urls': 'stun:://google.com' }]}
+                });
 
                 peer.on('open', (id) => {
                     document.getElementById('my-id').innerText = id;
-                    addLog("УСПЕХ! Сеть выделила ID комнаты: " + id);
+                    document.getElementById('status').innerText = 'Вы в сети. Ждем друзей!';
+                    document.getElementById('status').style.color = '#3ba55d';
+                    addLog("УСПЕХ! Сервер выдал ID комнаты: " + id);
                 });
 
                 peer.on('error', (err) => {
-                    addLog("ОШИБКА СЕТИ: " + err.message);
+                    addLog("Сетевая ошибка PeerJS: " + err.type + " - " + err.message);
                 });
 
                 peer.on('call', (call) => {
-                    addLog("Входящий вызов...");
+                    addLog("Обнаружен входящий вызов от друга. Соединяю...");
                     call.answer(localStream);
                     call.on('stream', (remoteStream) => { playRemoteStream(remoteStream); });
                 });
             } catch(e) {
-                addLog("КРИТИЧЕСКИЙ СБОЙ: " + e.message);
+                addLog("Критическая ошибка инициализации сети: " + e.message);
             }
         }
 
-        fnction connectToFriend() {
+        function connectToFriend() {
             const friendId = document.getElementById('peer-id-input').value;
-            addLog("Вызываю друга с ID: " + friendId);
+            if (!friendId) return alert("Сначала введите ID друга!");
+            addLog("Вызываю друга на P2P канал. ID: " + friendId);
+            
             const call = peer.call(friendId, localStream);
             call.on('stream', (remoteStream) => { playRemoteStream(remoteStream); });
         }
 
         function playRemoteStream(remoteStream) {
-            addLog("Связь установлена! Звук подключен.");
+            addLog("Прямой P2P мост построен! Аудиопоток воспроизводится.");
             const audio = document.createElement('audio');
             audio.srcObject = remoteStream;
             audio.autoplay = true;
