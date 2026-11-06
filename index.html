@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Резервный Голос</title>
+    <script src="https://unpkg.com"></script>
+    <style>
+        body { font-family: sans-serif; background: #2f3136; color: #fff; text-align: center; padding-top: 50px; }
+        button { padding: 15px 25px; font-size: 16px; margin: 10px; border: none; border-radius: 5px; cursor: pointer; background: #5865F2; color: white; transition: 0.2s; }
+        button:hover { background: #4752C4; }
+        .mic-btn { background: #3ba55d; font-weight: bold; font-size: 18px; animation: pulse 2s infinite; }
+        .mic-btn:hover { background: #2e854b; }
+        #status { font-size: 18px; margin: 20px; color: #faa81a; }
+        input { padding: 10px; font-size: 16px; width: 250px; border-radius: 5px; border: none; }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>P2P Резервный Голос (На замену Discord)</h1>
+    
+    <!-- Кнопка, которая принудительно вызывает стандартное окно браузера -->
+    <div id="mic-box">
+        <p style="font-size: 18px;">Для работы звонков необходимо разрешить доступ:</p>
+        <button class="mic-btn" onclick="requestMicrophone()">👉 ВКЛЮЧИТЬ МИКРОФОН 👈</button>
+    </div>
+
+    <div id="status" style="display:none;">Статус: Ожидание микрофона...</div>
+    
+    <div id="chat-box" style="display:none;">
+        <p>Ваш ID комнаты (скиньте его другу):</p>
+        <h2 id="my-id" style="color: #faa81a; font-size: 32px; letter-spacing: 2px;">Получение ID...</h2>
+        
+        <div style="margin-top: 40px;">
+            <input type="text" id="peer-id-input" placeholder="Введите ID друга">
+            <button onclick="connectToFriend()">Подключиться к другу</button>
+        </div>
+    </div>
+
+    <script>
+        let localStream;
+        let peer;
+
+        // Функция, которая при клике принудительно вызывает стандартное уведомление Chrome
+        function requestMicrophone() {
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+                .then(stream => {
+                    localStream = stream;
+                    
+                    // Прячем кнопку микрофона, показываем интерфейс чата
+                    document.getElementById('mic-box').style.display = 'none';
+                    document.getElementById('status').style.display = 'block';
+                    document.getElementById('chat-box').style.display = 'block';
+                    document.getElementById('status').innerText = 'Микрофон успешно подключен! Подключаемся к сети...';
+                    document.getElementById('status').style.color = '#3ba55d';
+
+                    // Запускаем P2P сеть только ПОСЛЕ того, как микрофон разрешен
+                    initP2P();
+                })
+                .catch(err => {
+                    alert('Браузер заблокировал микрофон. Пожалуйста, нажмите на замочек/ползунки слева от адресной строки и разрешите его вручную!');
+                    console.error(err);
+                });
+        }
+
+        function initP2P() {
+            peer = new Peer({
+                config: {'iceServers': [{ 'urls': 'stun:://google.com' }]}
+            });
+
+            peer.on('open', (id) => {
+                document.getElementById('my-id').innerText = id;
+                document.getElementById('status').innerText = 'В сети. Ждем друзей!';
+            });
+
+            peer.on('call', (call) => {
+                document.getElementById('status').innerText = 'Входящий звонок...';
+                call.answer(localStream);
+                call.on('stream', (remoteStream) => { playRemoteStream(remoteStream); });
+            });
+        }
+
+        function connectToFriend() {
+            const friendId = document.getElementById('peer-id-input').value;
+            if (!friendId) return alert('Введите ID!');
+            
+            document.getElementById('status').innerText = 'Звоним другу...';
+            const call = peer.call(friendId, localStream);
+            call.on('stream', (remoteStream) => { playRemoteStream(remoteStream); });
+        }
+
+        function playRemoteStream(remoteStream) {
+            document.getElementById('status').innerText = 'Вы в сети! Голосовая связь установлена.';
+            const audio = document.createElement('audio');
+            audio.srcObject = remoteStream;
+            audio.autoplay = true;
+            document.body.appendChild(audio);
+        }
+    </script>
+</body>
+</html>
